@@ -1,41 +1,45 @@
 ---
 - name: Install Docker on target VM
   hosts: all
-  become: yes
-
+  become: true
+  become_method: sudo
+  vars:
+    ansible_become_password: ""
   tasks:
     - name: Update apt packages
       apt:
         update_cache: yes
 
-    - name: Install dependencies
+    - name: Install required packages
       apt:
         name:
           - apt-transport-https
           - ca-certificates
           - curl
-          - software-properties-common
+          - gnupg
+          - lsb-release
         state: present
 
     - name: Add Docker GPG key
-      apt_key:
-        url: https://download.docker.com/linux/ubuntu/gpg
-        state: present
+      shell: |
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+      args:
+        warn: false
 
     - name: Add Docker repository
-      apt_repository:
-        repo: deb https://download.docker.com/linux/ubuntu focal stable
-        state: present
+      shell: |
+        echo \
+        "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
+        https://download.docker.com/linux/ubuntu \
+        $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+      args:
+        warn: false
 
-    - name: Install Docker Engine
+    - name: Install Docker engine
       apt:
-        name: docker-ce
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
         state: present
         update_cache: yes
-
-    - name: Ensure Docker service is running
-      service:
-        name: docker
-        state: started
-        enabled: true
-
